@@ -53,9 +53,9 @@ flowchart LR
 | Piece | What it does |
 | --- | --- |
 | `web/` | The existing React UI. Vite builds it to `web/dist`. |
-| `api/v1/[...slug].ts` | Ownership, quotas, the live curve, the report, and the badge. `maxDuration` is 90 seconds. |
-| `api/shop.ts` | Northwind Kits, the demo shop this deployment owns, at `/demo`. |
-| `api/wellknown.ts` | `/.well-known/stampede-<token>.txt` for the demo shop, so verification needs no DNS. |
+| `api/v1.js` | Ownership, quotas, the live curve, the report, and the badge. `maxDuration` is 90 seconds. |
+| `api/shop.js` | Northwind Kits, the demo shop this deployment owns, at `/demo`. |
+| `api/wellknown.js` | `/.well-known/stampede-<token>.txt` for the demo shop, so verification needs no DNS. |
 | Runtime Cache | When the function is on Vercel, challenges, quotas, the kill switch, and finished runs are shared across instances in the region. No token to configure. Off Vercel, the same data stays in the instance memory. |
 
 The Go orchestrator and loadgen stay the local and optional self-host path. Production does not call them. The curve runs inside the Node function: GET only, in-process workers, samples streamed back as server-sent events. The embedded shop is not hammered through extra function invocations. A fresh in-process gate still folds the way the Go shop does: above about 24 requests in a second, p95 crosses 1.5s, and above about 34 the homepage returns 503.
@@ -64,7 +64,7 @@ The hosted preset is **30 seconds**, not 45. Slow responses stretch a Top 5 run 
 
 ### Hobby and Pro duration
 
-On Fluid Compute, the platform default max duration is **300 seconds on Hobby and on Pro**. Pro and Enterprise can raise one function up to **800 seconds** (1800 seconds in the extended beta). This repo sets the run function to **90 seconds** in `vercel.json` (`api/v1/[...slug].ts`). Hobby also caps a deployment at 12 Serverless Functions, and every `.ts` file under `api/` counts as one. Shared code lives in `server/lib/`, tests live next to it, and the local server is `scripts/dev-api.ts` (`npm run dev:api`). Only three route files stay in `api/`: `api/v1/[...slug].ts`, `api/shop.ts`, and `api/wellknown.ts`.
+On Fluid Compute, the platform default max duration is **300 seconds on Hobby and on Pro**. Pro and Enterprise can raise one function up to **800 seconds** (1800 seconds in the extended beta). This repo sets the run function to **90 seconds** in `vercel.json` (`api/v1.js`). Hobby also caps a deployment at 12 Serverless Functions, and every file under `api/` counts as one. Shared code lives in `server/lib/`. `npm run build:api` bundles it into three self-contained functions, `api/v1.js`, `api/shop.js`, and `api/wellknown.js`, so the runtime does not load `server/lib` from disk. `/v1/*` is rewritten onto `api/v1.js` (`?path=`). Tests live in `server/lib/`, and the local server is `scripts/dev-api.ts` (`npm run dev:api`).
 
 That 90 second cap is enough for the 30 second public demo. If a project overrides the function limit below 90 seconds, lower `STAMPEDE_DURATION_SECONDS` (default 30) so the curve finishes. To run a longer preset, raise `maxDuration` in `vercel.json` and set `STAMPEDE_PLATFORM_MAX_SECONDS` no higher than 180. Do not go past the 3 minute safety cap.
 

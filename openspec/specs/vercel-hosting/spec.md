@@ -14,7 +14,7 @@ The hosted deployment SHALL serve the existing UI and a Node API that accepts a 
 - **THEN** the target is a route on that same deployment, ownership is proved without DNS, and a preset run shows a chart, a report, and a badge
 
 ### Requirement: Hobby function count
-A Hobby deployment SHALL expose at most three Serverless Functions. Only `api/v1/[...slug].ts`, `api/shop.ts`, and `api/wellknown.ts` MAY live under `api/`. Shared modules, tests, and the local dev server MUST stay outside `api/` so Vercel does not count them as functions.
+A Hobby deployment SHALL expose at most three Serverless Functions. Only `api/v1.js`, `api/shop.js`, and `api/wellknown.js` MAY live under `api/`. Each file MUST be a self-contained bundle: the function MUST NOT import `server/lib` from the deployment filesystem. Shared modules, tests, handler sources, and the local dev server MUST stay outside `api/`. `/v1/*` MUST be rewritten onto the single `api/v1.js` function.
 
 #### Scenario: Deploy stays within the Hobby limit
 - **WHEN** the project is deployed on the Hobby plan

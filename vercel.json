@@ -2,17 +2,19 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci && npm ci --prefix web",
-  "buildCommand": "npm run build --prefix web",
+  "buildCommand": "npm run build",
   "outputDirectory": "web/dist",
   "fluid": true,
   "functions": {
-    "api/v1/[...slug].ts": {
+    "api/v1.js": {
       "maxDuration": 90
     }
   },
   "rewrites": [
-    { "source": "/healthz", "destination": "/api/v1/healthz" },
-    { "source": "/v1/(.*)", "destination": "/api/v1/$1" },
+    { "source": "/healthz", "destination": "/api/v1?path=healthz" },
+    { "source": "/v1", "destination": "/api/v1" },
+    { "source": "/v1/(.*)", "destination": "/api/v1?path=$1" },
+    { "source": "/api/v1/(.*)", "destination": "/api/v1?path=$1" },
     { "source": "/demo", "destination": "/api/shop" },
     { "source": "/demo/", "destination": "/api/shop" },
     { "source": "/demo/(.*)", "destination": "/api/shop?path=$1" },
