@@ -1,13 +1,11 @@
 # Screenshots
 
-These files are filled in after the first Vercel deploy. The app does not read them. The root README links the same names.
+Captured from the live demo at https://stampede-three.vercel.app. The app does not read these files; the root README and Product Hunt gallery link the same names.
 
 | File | Capture |
 | --- | --- |
 | `01-home.png` | Home, with the URL field and **Use the demo shop** |
-| `02-ownership.png` | Ownership challenge for the demo shop |
-| `03-live-chart.png` | Live chart while a Top 5 run is ramping |
-| `04-report-badge.png` | Readiness report, cost line, and badge |
-| `05-demo-shop.png` | Northwind Kits at `/demo` |
+| `02-running.png` | Live chart while a Top 5 of the Day run is still ramping |
+| `03-result.png` | Finished run: readiness report, cost line, and badge. Sample result was **Needs work** at about 25 req/s. |
 
-Use the production URL. Desktop width is enough. Do not include admin tokens or `.env` values in the frame.
+Desktop width is enough. Do not include admin tokens or `.env` values in the frame.

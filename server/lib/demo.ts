@@ -86,7 +86,29 @@ export function demoResult(url: URL, gate: Gate = demoGate): DemoResult {
 }
 
 export function isDemoPath(url: URL, selfHost: string): boolean {
-  return url.hostname.toLowerCase() === selfHost.toLowerCase() && (url.pathname === "/demo" || url.pathname === "/demo/");
+  return hostOf(url) === hostOfName(selfHost) && isDemoPathname(url);
+}
+
+// Launch-day allowance for the embedded shop: this deployment's /demo, or the
+// public Stampede app (stampede-three.vercel.app) at /demo.
+export function isLaunchDemoTarget(url: URL, requestHost: string): boolean {
+  if (!isDemoPathname(url)) return false;
+  if (isDemoPath(url, requestHost)) return true;
+  const host = hostOf(url);
+  return host === "stampede-three.vercel.app" || host.endsWith(".stampede-three.vercel.app");
+}
+
+function isDemoPathname(url: URL): boolean {
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  return path === "/demo";
+}
+
+function hostOf(url: URL): string {
+  return hostOfName(url.hostname);
+}
+
+function hostOfName(host: string): string {
+  return host.toLowerCase().replace(/\.$/, "");
 }
 
 export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {

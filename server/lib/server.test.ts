@@ -33,11 +33,20 @@ async function post(handle: (req: Request) => Promise<Response>, path: string, b
 test("demo loop requires ownership, then streams a report and badge", async () => {
   const { handle } = app();
   const config = await handle(new Request(`${origin}/v1/config`));
-  const cfg = (await config.json()) as { demo_url: string; platform: string; scheduler: boolean; model: string };
+  const cfg = (await config.json()) as {
+    demo_url: string;
+    platform: string;
+    scheduler: boolean;
+    model: string;
+    domain_quota: number;
+    demo_domain_quota: number;
+  };
   assert.equal(cfg.demo_url, `${origin}/demo`);
   assert.equal(cfg.platform, "vercel");
   assert.equal(cfg.scheduler, false);
   assert.equal(cfg.model, "template");
+  assert.equal(cfg.domain_quota, 3);
+  assert.equal(cfg.demo_domain_quota, 200);
 
   const blocked = await post(handle, "/v1/challenges", { url: "http://169.254.169.254/" });
   assert.equal(blocked.status, 400);
@@ -105,6 +114,22 @@ test("the deployment's own loopback demo is allowed and other loopback paths are
     }),
   );
   assert.equal(other.status, 400);
+});
+
+test("the hosted demo shop keeps a higher domain quota and the same IP quota", async () => {
+  const { handle } = app({ domainQuota: 1, demoDomainQuota: 3, ipQuota: 1 });
+  async function demoRun(ip: string) {
+    const created = await post(handle, "/v1/challenges", { url: `${origin}/demo` }, ip);
+    assert.equal(created.status, 201);
+    const verified = await post(handle, `/v1/challenges/${encodeURIComponent(String(created.json.id))}/verify`, { method: "file" }, ip);
+    assert.equal(verified.status, 200);
+    return post(handle, "/v1/runs", { challenge_id: created.json.id, preset: "top5", duration_seconds: 1, grant: verified.json.grant }, ip);
+  }
+  assert.equal((await demoRun("203.0.113.21")).status, 201);
+  assert.equal((await demoRun("203.0.113.21")).status, 429);
+  assert.equal((await demoRun("203.0.113.22")).status, 201);
+  assert.equal((await demoRun("203.0.113.23")).status, 201);
+  assert.equal((await demoRun("203.0.113.24")).status, 429);
 });
 
 test("quotas, kill switch, and external ownership stay enforced", async () => {

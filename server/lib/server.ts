@@ -1,10 +1,11 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Resolver } from "node:dns/promises";
 import { badgeSvg } from "./badge";
-import { createGate, demoResult, isDemoPath, sleep } from "./demo";
+import { createGate, demoResult, isDemoPath, isLaunchDemoTarget, sleep } from "./demo";
 import {
   CHALLENGE_LIMIT_PER_HOUR,
-  DOMAIN_QUOTA,
+  demoDomainQuota,
+  domainQuota,
   IP_QUOTA,
   MAX_WORKERS,
   SAFETY_MAX_SECONDS,
@@ -57,6 +58,7 @@ export type AppOptions = {
   platformMaxSeconds?: number;
   defaultDuration?: number;
   domainQuota?: number;
+  demoDomainQuota?: number;
   ipQuota?: number;
   adminToken?: string;
   now?: () => number;
@@ -74,7 +76,8 @@ export function createApp(options: AppOptions = {}): App {
   const policy = options.policy ?? defaultPolicy({ allowHosts: allowHosts(), maxRps: maxRps() });
   const platformMax = options.platformMaxSeconds ?? platformMaxSeconds();
   const presetDuration = options.defaultDuration ?? defaultDurationSeconds();
-  const domainQuota = options.domainQuota ?? DOMAIN_QUOTA;
+  const domainQuotaLimit = options.domainQuota ?? domainQuota();
+  const demoDomainQuotaLimit = options.demoDomainQuota ?? demoDomainQuota();
   const ipQuota = options.ipQuota ?? IP_QUOTA;
   const adminToken = options.adminToken ?? process.env.STAMPEDE_ADMIN_TOKEN ?? "";
   const now = options.now ?? (() => Date.now());
@@ -159,7 +162,8 @@ export function createApp(options: AppOptions = {}): App {
       model: "template",
       platform: "vercel",
       scheduler: false,
-      domain_quota: domainQuota,
+      domain_quota: domainQuotaLimit,
+      demo_domain_quota: Math.max(domainQuotaLimit, demoDomainQuotaLimit),
       ip_quota: ipQuota,
     });
   }
@@ -265,7 +269,10 @@ export function createApp(options: AppOptions = {}): App {
     const ipKey = `q:ip:${ip}:${day}`;
     const hostUsed = Number((await store.get(hostKey)) || "0");
     const ipUsed = Number((await store.get(ipKey)) || "0");
-    if (hostUsed >= domainQuota || ipUsed >= ipQuota) {
+    const hostQuota = isLaunchDemoTarget(page, selfHost(request))
+      ? Math.max(domainQuotaLimit, demoDomainQuotaLimit)
+      : domainQuotaLimit;
+    if (hostUsed >= hostQuota || ipUsed >= ipQuota) {
       throw new HttpError(429, "daily quota exceeded for this domain or network");
     }
     await store.set(hostKey, String(hostUsed + 1), 36 * 3600);

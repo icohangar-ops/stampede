@@ -60,7 +60,7 @@ flowchart LR
 
 The Go orchestrator and loadgen stay the local and optional self-host path. Production does not call them. The curve runs inside the Node function: GET only, in-process workers, samples streamed back as server-sent events. The embedded shop is not hammered through extra function invocations. A fresh in-process gate still folds the way the Go shop does: above about 24 requests in a second, p95 crosses 1.5s, and above about 34 the homepage returns 503.
 
-The hosted preset is **30 seconds**, not 45. Slow responses stretch a Top 5 run to roughly a minute of wall clock, which fits the 90 second function limit with room for the probe and the report. The safety ceiling is still 3 minutes. This deployment refuses a curve longer than 40 seconds (`STAMPEDE_PLATFORM_MAX_SECONDS`) so the function is not killed mid-ramp.
+The hosted preset is **30 seconds**, not 45. A live Top 5 run on the demo shop can still take about **1–2 minutes** of wall time, because slow responses stretch the ramp even though the curve is labeled 30 seconds. The function limit is 90 seconds. The safety ceiling is still 3 minutes. This deployment refuses a curve longer than 40 seconds (`STAMPEDE_PLATFORM_MAX_SECONDS`) so the function is not killed mid-ramp.
 
 ### Hobby and Pro duration
 
@@ -80,6 +80,8 @@ None are required for the demo.
 | `STAMPEDE_DURATION_SECONDS` | no | Preset length. Default 30. Clamped between 10 and the platform max. |
 | `STAMPEDE_PLATFORM_MAX_SECONDS` | no | Longest curve this deployment will start. Default 40. Cannot exceed 180. |
 | `STAMPEDE_MAX_RPS` | no | Requests per second cap. Default 40. Cannot be raised above 40. |
+| `STAMPEDE_DOMAIN_QUOTA` | no | Runs per target domain per UTC day. Default 3. |
+| `DEMO_DOMAIN_QUOTA` | no | Runs per UTC day for this deployment's `/demo`, and for `https://stampede-three.vercel.app/demo`. Default 200, so launch day does not lock the shared shop after 3 visitors. `STAMPEDE_DEMO_DOMAIN_QUOTA` is an alias. Each client IP still uses the quota of 5. Other domains stay on `STAMPEDE_DOMAIN_QUOTA`. |
 | `STAMPEDE_ALLOW_HOSTS` | no | Comma-separated hostnames allowed to use a non-public address and a non-80/443 port. Metadata addresses stay blocked. |
 | `TRUST_PROXY` | no | Set to `1` to trust `X-Forwarded-For` for quotas. Vercel sets this itself (`VERCEL=1`). |
 
@@ -90,7 +92,7 @@ Nightly retests are not scheduled on Vercel. The checkbox is hidden. The optiona
 1. Paste a URL, or choose **Use the demo shop** (`/demo` on this deployment).
 2. Prove ownership with `/.well-known/stampede-<token>.txt` or a DNS TXT record. The demo shop answers the file.
 3. Pick **Top 5 of the Day** or **#1 Product of the Day**.
-4. Watch the live chart for about 30 seconds.
+4. Watch the live chart. The preset is labeled 30 seconds. On the demo shop, wall time is often 1–2 minutes.
 5. Read the template report, the Vercel cost estimate, and the badge. The result page is `/r/<id>`.
 
 ## Traffic assumptions
@@ -112,7 +114,7 @@ Stampede is not a load cannon. The Node path enforces the same limits as the Go 
 - Verified ownership is required before any run. Place `/.well-known/stampede-<token>.txt` or a DNS TXT record. The demo shop answers the file because this deployment owns it. On this host, the only URL Stampede will test is `/demo`.
 - GET only. No body, no other method.
 - Hard caps: 40 req/s, 50 workers, 3 minutes. This deployment's preset is 30 seconds and it refuses a curve longer than 40 seconds.
-- Quotas: 3 runs per domain per UTC day, 5 per client IP. Challenge creation is limited to 30 per IP per hour. On Vercel those counters live in Runtime Cache. Without it, each instance enforces them in memory.
+- Quotas: 3 runs per external domain per UTC day (`STAMPEDE_DOMAIN_QUOTA`), 5 per client IP. The embedded demo shop uses `DEMO_DOMAIN_QUOTA` (default 200) so visitors are not locked out after a few shared runs. Challenge creation is limited to 30 per IP per hour. On Vercel those counters live in Runtime Cache. Without it, each instance enforces them in memory.
 - Private, loopback, link-local, CGNAT, documentation, and reserved ranges are blocked. Cloud metadata (`169.254.169.254` and the metadata hostname) stays blocked even if a host is allowlisted.
 - Redirects stay on the same hostname and are rechecked. The dialer pins the resolved address and does not use an HTTP proxy.
 - A kill switch stops new runs and in-flight load. Terms are on `/terms`.
@@ -194,25 +196,15 @@ The script's comments and `cloudbuild.yaml` list the APIs, service accounts, and
 
 ## Screenshots
 
-The coordinator adds images after the first Vercel deploy. Put the PNGs in `docs/screenshots/` using these names, then uncomment the images below.
+Live demo: https://stampede-three.vercel.app
 
-| File | What it shows |
-| --- | --- |
-| `docs/screenshots/01-home.png` | Home, with the URL field and **Use the demo shop** |
-| `docs/screenshots/02-ownership.png` | Ownership challenge for the demo shop |
-| `docs/screenshots/03-live-chart.png` | Live chart mid-ramp |
-| `docs/screenshots/04-report-badge.png` | Readiness report and badge |
-| `docs/screenshots/05-demo-shop.png` | Northwind Kits at `/demo` |
-
-<!-- After deploy, commit the PNGs and uncomment:
+A sample Top 5 run on the demo shop came back **Needs work**, breaking at about 25 req/s.
 
 ![Home](docs/screenshots/01-home.png)
-![Ownership](docs/screenshots/02-ownership.png)
-![Live chart](docs/screenshots/03-live-chart.png)
-![Report and badge](docs/screenshots/04-report-badge.png)
-![Demo shop](docs/screenshots/05-demo-shop.png)
 
--->
+![Running](docs/screenshots/02-running.png)
+
+![Result](docs/screenshots/03-result.png)
 
 ## Open risks
 
