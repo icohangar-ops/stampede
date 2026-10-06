@@ -13,6 +13,13 @@ The hosted deployment SHALL serve the existing UI and a Node API that accepts a 
 - **WHEN** a visitor chooses the demo shop on the hosted site
 - **THEN** the target is a route on that same deployment, ownership is proved without DNS, and a preset run shows a chart, a report, and a badge
 
+### Requirement: Hobby function count
+A Hobby deployment SHALL expose at most three Serverless Functions. Only `api/v1/[...slug].ts`, `api/shop.ts`, and `api/wellknown.ts` MAY live under `api/`. Shared modules, tests, and the local dev server MUST stay outside `api/` so Vercel does not count them as functions.
+
+#### Scenario: Deploy stays within the Hobby limit
+- **WHEN** the project is deployed on the Hobby plan
+- **THEN** the deployment contains those three functions and does not require a Pro plan
+
 ### Requirement: Function duration
 The hosted preset SHALL be short enough to finish inside the configured function `maxDuration`. The safety ceiling of 3 minutes MUST still be enforced, and the deployment MUST refuse a curve that would outlive the function budget.
 

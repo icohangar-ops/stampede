@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
-import { sleep } from "./lib/demo";
-import { toRequest, writeResponse } from "./lib/node-adapter";
-import { createApp, renderDemo } from "./lib/server";
+import { sleep } from "../server/lib/demo";
+import { toRequest, writeResponse } from "../server/lib/node-adapter";
+import { createApp, renderDemo } from "../server/lib/server";
 
 const app = createApp({ trustProxy: true });
 const port = Number(process.env.PORT || 8787);

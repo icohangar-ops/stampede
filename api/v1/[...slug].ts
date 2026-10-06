@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { toRequest, writeResponse } from "../lib/node-adapter";
-import { createApp } from "../lib/server";
+import { toRequest, writeResponse } from "../../server/lib/node-adapter";
+import { createApp } from "../../server/lib/server";
 
 const app = createApp();
 

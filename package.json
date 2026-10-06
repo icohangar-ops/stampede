@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "tsx --test api/lib/*.test.ts",
+    "test": "tsx --test server/lib/*.test.ts",
     "build": "npm run build --prefix web",
-    "dev:api": "tsx api/dev-server.ts",
+    "dev:api": "tsx scripts/dev-api.ts",
     "check": "npm test && npm run build"
   },
   "dependencies": {
