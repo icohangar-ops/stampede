@@ -1,0 +1,24 @@
+steps:
+  - id: orchestrator
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "--target", "orchestrator", "-t", "${_REPO}/orchestrator:latest", "."]
+  - id: loadgen
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "--target", "loadgen", "-t", "${_REPO}/loadgen:latest", "."]
+    waitFor: ["-"]
+  - id: report
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "--target", "report", "-t", "${_REPO}/report:latest", "."]
+    waitFor: ["-"]
+  - id: web
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "--target", "web", "-t", "${_REPO}/web:latest", "."]
+    waitFor: ["-"]
+images:
+  - "${_REPO}/orchestrator:latest"
+  - "${_REPO}/loadgen:latest"
+  - "${_REPO}/report:latest"
+  - "${_REPO}/web:latest"
+options:
+  machineType: E2_HIGHCPU_8
+timeout: 1800s
