@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { renderDemo } from "./lib/server";
+import { renderDemo } from "../server/lib/server";
 
 export default function handler(req: IncomingMessage, res: ServerResponse): void {
   const host = first(req.headers["x-forwarded-host"]) || first(req.headers.host) || "localhost";

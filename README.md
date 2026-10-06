@@ -64,7 +64,7 @@ The hosted preset is **30 seconds**, not 45. Slow responses stretch a Top 5 run 
 
 ### Hobby and Pro duration
 
-On Fluid Compute, the platform default max duration is **300 seconds on Hobby and on Pro**. Pro and Enterprise can raise one function up to **800 seconds** (1800 seconds in the extended beta). This repo sets the run function to **90 seconds** in `vercel.json` (`api/v1/[...slug].ts`).
+On Fluid Compute, the platform default max duration is **300 seconds on Hobby and on Pro**. Pro and Enterprise can raise one function up to **800 seconds** (1800 seconds in the extended beta). This repo sets the run function to **90 seconds** in `vercel.json` (`api/v1/[...slug].ts`). Hobby also caps a deployment at 12 Serverless Functions, and every `.ts` file under `api/` counts as one. Shared code lives in `server/lib/`, tests live next to it, and the local server is `scripts/dev-api.ts` (`npm run dev:api`). Only three route files stay in `api/`: `api/v1/[...slug].ts`, `api/shop.ts`, and `api/wellknown.ts`.
 
 That 90 second cap is enough for the 30 second public demo. If a project overrides the function limit below 90 seconds, lower `STAMPEDE_DURATION_SECONDS` (default 30) so the curve finishes. To run a longer preset, raise `maxDuration` in `vercel.json` and set `STAMPEDE_PLATFORM_MAX_SECONDS` no higher than 180. Do not go past the 3 minute safety cap.
 

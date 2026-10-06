@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { sleep } from "./lib/demo";
-import { renderDemo } from "./lib/server";
+import { sleep } from "../server/lib/demo";
+import { renderDemo } from "../server/lib/server";
 
 // One function for /demo and /demo/* so the route does not depend on an optional catch-all.
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
