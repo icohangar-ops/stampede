@@ -20,8 +20,9 @@ export default function Terms() {
         </li>
         <li>We can stop new runs and in-flight load with a kill switch, without notice.</li>
         <li>
-          The readiness report and the Cloud Run cost figure are estimates from a short, capped
-          test. They are not a guarantee and not an invoice.
+          The readiness report and the hosting cost figure are estimates from a short, capped
+          test. On the public Vercel site that figure uses Functions list price. They are not a
+          guarantee and not an invoice.
         </li>
         <li>Opt-in nightly retests stop after 30 days, or sooner if you are over quota.</li>
       </ul>

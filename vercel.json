@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci && npm ci --prefix web",
+  "buildCommand": "npm run build --prefix web",
+  "outputDirectory": "web/dist",
+  "fluid": true,
+  "functions": {
+    "api/v1/[...slug].ts": {
+      "maxDuration": 90
+    }
+  },
+  "rewrites": [
+    { "source": "/healthz", "destination": "/api/v1/healthz" },
+    { "source": "/v1/(.*)", "destination": "/api/v1/$1" },
+    { "source": "/demo", "destination": "/api/shop" },
+    { "source": "/demo/", "destination": "/api/shop" },
+    { "source": "/demo/(.*)", "destination": "/api/shop?path=$1" },
+    { "source": "/.well-known/stampede-:token.txt", "destination": "/api/wellknown?token=:token" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

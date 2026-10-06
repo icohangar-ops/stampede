@@ -36,8 +36,12 @@ When Vertex AI settings are present, the report step MUST call Gemini and MAY us
 - **THEN** the stored report keeps the sample-derived breaking point and cost estimate
 
 ### Requirement: Cost estimate is labeled
-The cost estimate MUST state that it is a list-price approximation for Cloud Run request-based billing and not an invoice.
+The cost estimate MUST state that it is a list-price approximation and not an invoice. The optional Cloud Run self-host path approximates Cloud Run request-based billing. The Vercel deployment approximates Vercel Functions Fluid Compute list price.
 
 #### Scenario: Estimate carries the label
 - **WHEN** a report includes a cost estimate
-- **THEN** the estimate includes the currency amount and a note that it is an approximation of Cloud Run list price
+- **THEN** the estimate includes the currency amount and a note that it is an approximation and not an invoice
+
+#### Scenario: Vercel report names Vercel
+- **WHEN** a run finishes on the Vercel deployment
+- **THEN** the cost note names Vercel Functions and states that it is not an invoice
