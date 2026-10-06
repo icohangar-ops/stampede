@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Go tests
+        run: go test ./...
+      - name: Web build
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Deploy script rejects missing args
+        run: |
+          set +e
+          bash deploy.sh
+          code=$?
+          if [[ "$code" -ne 2 ]]; then
+            echo "expected exit 2, got $code"
+            exit 1
+          fi

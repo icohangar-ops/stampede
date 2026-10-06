@@ -1,0 +1,10 @@
+data/
+web/dist/
+web/node_modules/
+*.db
+*.db-journal
+.env
+.stampede-deploy.env
+bin/
+coverage.out
+.DS_Store

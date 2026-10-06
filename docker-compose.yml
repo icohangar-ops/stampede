@@ -1,0 +1,51 @@
+services:
+  target:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: target
+    environment:
+      PORT: "8090"
+    ports:
+      - "8090:8090"
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: orchestrator
+    environment:
+      PORT: "8080"
+      STAMPEDE_ENV: local
+      STORE: sqlite
+      DATABASE_PATH: /data/stampede.db
+      ARTIFACT_DIR: /data/artifacts
+      ALLOW_HOSTS: localhost,127.0.0.1,target
+      DEMO_URL_PUBLIC: http://localhost:8090
+      DEMO_URL_INTERNAL: http://target:8090
+      LOADGEN_MODE: inprocess
+      ADMIN_TOKEN: local-dev-admin
+      INTERNAL_TOKEN: local-dev-internal
+      MAX_RPS: "40"
+      MAX_DURATION: 180s
+      MAX_WORKERS: "50"
+    volumes:
+      - stampede-data:/data
+    ports:
+      - "8081:8080"
+    depends_on:
+      - target
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    environment:
+      PORT: "8080"
+      ORCHESTRATOR_URL: http://orchestrator:8080
+      STATIC_DIR: /dist
+    ports:
+      - "8080:8080"
+    depends_on:
+      - orchestrator
+volumes:
+  stampede-data:
