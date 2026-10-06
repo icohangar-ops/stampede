@@ -12,16 +12,27 @@ export default function Result() {
   useEffect(() => {
     if (!id) return;
     let stop = false;
+    let hadCache = false;
+    try {
+      const cached = sessionStorage.getItem(`stampede:${id}`);
+      if (cached) {
+        hadCache = true;
+        setRun(JSON.parse(cached) as Run);
+      }
+    } catch {
+      // Ignore a missing or unreadable local copy.
+    }
     const tick = () => {
       api
         .run(id)
         .then((next) => {
           if (stop) return;
           setRun(next);
+          setError("");
           if (next.status === "running") setTimeout(tick, 1000);
         })
         .catch((err: Error) => {
-          if (!stop) setError(err.message);
+          if (!stop && !hadCache) setError(err.message);
         });
     };
     tick();

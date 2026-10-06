@@ -11,6 +11,7 @@ export default function Home() {
   const [verified, setVerified] = useState(false);
   const [method, setMethod] = useState<"file" | "dns">("file");
   const [optIn, setOptIn] = useState(false);
+  const [grant, setGrant] = useState("");
   const [run, setRun] = useState<Run | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [error, setError] = useState("");
@@ -34,20 +35,37 @@ export default function Home() {
         return next;
       });
     });
+    let finished = false;
     const pull = () => {
       api
         .run(run.id)
         .then((next) => {
           setRun(next);
           if (next.samples && next.samples.length) setSamples(next.samples);
+          if (next.status !== "running") rememberRun(next);
         })
-        .catch((err: Error) => setError(err.message));
+        .catch((err: Error) => {
+          if (!finished) setError(err.message);
+        });
     };
-    es.addEventListener("done", () => {
+    es.addEventListener("done", (ev) => {
+      finished = true;
       es.close();
+      try {
+        const data = JSON.parse((ev as MessageEvent).data) as { run?: Run };
+        if (data.run) {
+          setRun(data.run);
+          if (data.run.samples?.length) setSamples(data.run.samples);
+          rememberRun(data.run);
+          return;
+        }
+      } catch {
+        // Fall through to a fetch when the event has no payload.
+      }
       pull();
     });
     es.onerror = () => {
+      if (finished) return;
       es.close();
       pull();
     };
@@ -64,6 +82,7 @@ export default function Home() {
     setError("");
     setBusy(true);
     setVerified(false);
+    setGrant("");
     setRun(null);
     setSamples([]);
     try {
@@ -82,7 +101,8 @@ export default function Home() {
     setError("");
     setBusy(true);
     try {
-      await api.verify(challenge.id, method);
+      const result = await api.verify(challenge.id, method);
+      setGrant(result.grant || "");
       setVerified(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
@@ -97,7 +117,7 @@ export default function Home() {
     setBusy(true);
     setSamples([]);
     try {
-      const started = await api.start(challenge.id, presetId, optIn);
+      const started = await api.start(challenge.id, presetId, optIn, grant);
       setRun(started);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start the run");
@@ -249,10 +269,12 @@ export default function Home() {
                 </article>
               ))}
             </div>
-            <label className="optin">
-              <input type="checkbox" checked={optIn} onChange={(ev) => setOptIn(ev.target.checked)} />
-              Re-test this site nightly for 30 days
-            </label>
+            {config?.scheduler !== false && (
+              <label className="optin">
+                <input type="checkbox" checked={optIn} onChange={(ev) => setOptIn(ev.target.checked)} />
+                Re-test this site nightly for 30 days
+              </label>
+            )}
           </div>
         )}
 
@@ -310,6 +332,9 @@ export function ReportView({ run }: { run: Run }) {
   const origin = window.location.origin;
   const badge = `${origin}${run.badge_path}`;
   const page = `${origin}${run.result_path}`;
+  const badgeSrc = run.badge_svg
+    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(run.badge_svg)}`
+    : run.badge_path;
   const embed = `[![Stampede](${badge})](${page})`;
   return (
     <div className="report">
@@ -324,12 +349,12 @@ export function ReportView({ run }: { run: Run }) {
         ))}
       </ul>
       <p className="cost">
-        A launch day at this shape is about <strong>${report.cost.usd.toFixed(2)}</strong> on Cloud
-        Run ({report.cost.instances} instance{report.cost.instances === 1 ? "" : "s"},{" "}
+        A launch day at this shape is about <strong>${report.cost.usd.toFixed(2)}</strong> (
+        {report.cost.instances} instance{report.cost.instances === 1 ? "" : "s"},{" "}
         {report.cost.requests.toLocaleString()} requests). {report.cost.note}
       </p>
       <div className="share">
-        <img src={run.badge_path} alt={report.verdict === "launch_ready" ? "Launch-ready badge" : "Needs work badge"} />
+        <img src={badgeSrc} alt={report.verdict === "launch_ready" ? "Launch-ready badge" : "Needs work badge"} />
         <div>
           <p>
             Share the result. <Link to={run.result_path}>Open the result page</Link>
@@ -352,6 +377,14 @@ function Meter({ label, value, warn }: { label: string; value: string; warn?: bo
       <strong>{value}</strong>
     </div>
   );
+}
+
+export function rememberRun(run: Run) {
+  try {
+    sessionStorage.setItem(`stampede:${run.id}`, JSON.stringify(run));
+  } catch {
+    // Private mode can refuse storage. The API result still works on a warm instance.
+  }
 }
 
 function copy(text: string) {

@@ -13,7 +13,7 @@ export default function App() {
         <Link to="/" className="mark">
           STAMPEDE
         </Link>
-        <span className="tag">Cloud Run · Product Hunt</span>
+        <span className="tag">Vercel · Product Hunt</span>
       </header>
       <main id="main">
         <Routes>

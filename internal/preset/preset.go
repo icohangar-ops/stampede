@@ -122,10 +122,10 @@ func NumberOne() Preset {
 var sharedAssumptions = []string{
 	"These are planning shapes, not an official Product Hunt traffic feed.",
 	"A typical maker page is about 10 HTTP requests per visitor (document plus assets).",
-	"Stampede compresses the launch morning into a short run, 45 seconds by default, never more than 3 minutes.",
+	"Stampede compresses the launch morning into a short run, 45 seconds by default locally and 30 seconds on the Vercel demo, never more than 3 minutes.",
 	"Absolute rates are scaled to the safety cap (default 40 requests/second and 50 workers) so the shape is useful and the tool cannot be aimed as a flood.",
 	"Top 5 of the Day assumes roughly 2,000–4,000 launch-day uniques. The plateau is 75% of the cap.",
-	"Workers ramp from 10 to 50 across the run. Locally those are goroutines. On Cloud Run they are split across parallel job tasks.",
+	"Workers ramp from 10 to 50 across the run. Locally those are goroutines. On Vercel they run in-process inside one function. The optional Cloud Run job splits them across parallel tasks.",
 }
 
 func top5Curve(f float64) float64 {

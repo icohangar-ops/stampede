@@ -7,6 +7,10 @@ export type Config = {
   model: string;
   domain_quota: number;
   ip_quota: number;
+  platform?: string;
+  scheduler?: boolean;
+  preset_seconds?: number;
+  platform_max_seconds?: number;
 };
 
 export type Preset = {
@@ -79,6 +83,7 @@ export type Run = {
   samples?: Sample[];
   error?: string;
   badge_path: string;
+  badge_svg?: string;
   result_path: string;
 };
 
@@ -104,12 +109,12 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ method }),
-    }).then((r) => parse<{ verified: boolean; method: string }>(r)),
-  start: (challengeId: string, preset: string, optIn: boolean) =>
+    }).then((r) => parse<{ verified: boolean; method: string; grant?: string }>(r)),
+  start: (challengeId: string, preset: string, optIn: boolean, grant?: string) =>
     fetch("/v1/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challenge_id: challengeId, preset, opt_in: optIn }),
+      body: JSON.stringify({ challenge_id: challengeId, preset, opt_in: optIn, grant: grant || undefined }),
     }).then((r) => parse<Run>(r)),
   run: (id: string) => fetch(`/v1/runs/${id}`).then((r) => parse<Run>(r)),
 };

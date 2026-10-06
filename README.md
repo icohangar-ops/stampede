@@ -1,46 +1,97 @@
 # Stampede
 
-Will your app survive the Product Hunt front page? Find out in 60 seconds.
+Will your app survive the Product Hunt front page? Find out in about a minute.
 
-Stampede is a launch check for makers. Paste a URL you own, prove it, pick a Product Hunt-shaped traffic curve, and watch requests per second, latency, and errors ramp until the run finds a breaking point. You get a readiness report, a Cloud Run cost estimate, and a shareable badge.
+Stampede is a launch check for makers. Paste a URL you own, prove it, pick a Product Hunt-shaped traffic curve, and watch requests per second, latency, and errors ramp until the run finds a breaking point. You get a readiness report, a Vercel cost estimate, and a shareable badge.
 
-It is built to deploy on Google Cloud Run for the Product Hunt × Google Cloud Run hackathon (launch window Wednesday 14 October 2026). The same product runs locally and in CI with no Google Cloud credentials.
+The public demo runs on **Vercel**. No Google Cloud project is required. The original Cloud Run layout is still in `deploy.sh` if you want to self-host that topology later.
 
-## Architecture
+## Deploy on Vercel
+
+The Vercel app is this repository. The project root is the repo root, not `web/`. `vercel.json` builds the Vite UI in `web/` and serves the Node API under `api/`.
+
+Framework preset: **Other**. Do not set the root directory to `web/`.
+
+### Dashboard
+
+1. In the [Vercel dashboard](https://vercel.com/new), import `https://github.com/icohangar-ops/stampede`.
+2. Leave the root directory as the repository root. Framework preset: Other. The committed `vercel.json` supplies install, build, and output.
+3. No environment variables are required for the demo. The report is the deterministic template.
+4. Deploy. Open the production URL, choose **Use the demo shop**, verify, and run **Top 5 of the Day**.
+
+### CLI
+
+From a checkout of this repo, after [installing the Vercel CLI](https://vercel.com/docs/cli) and logging in:
+
+```bash
+vercel link
+vercel
+vercel --prod
+```
+
+`vercel` prints a preview URL. `vercel --prod` promotes a production deployment. Do this from the repository root so `vercel.json` is picked up.
+
+The basic demo needs no secrets. Optional variables are listed below.
+
+### What runs in production
 
 ```mermaid
 flowchart LR
   browser[Browser]
-  web[web service<br/>scale to zero]
-  orch[orchestrator service]
-  job[loadgen Cloud Run job<br/>N parallel tasks]
-  report[report service<br/>Vertex Gemini]
-  fs[(Firestore)]
-  gcs[(Cloud Storage)]
-  sched[Cloud Scheduler<br/>optional nightly]
+  ui[Static UI<br/>web/dist]
+  api[Node function<br/>api/v1]
+  shop[Demo shop<br/>/demo]
+  cache[(Runtime Cache<br/>optional)]
 
-  browser -->|HTTPS| web
-  web -->|/v1 identity token| orch
-  orch --> fs
-  orch --> gcs
-  orch -->|jobs.run| job
-  job -->|samples| orch
-  orch -->|summarize| report
-  report -->|Gemini| vertex[Vertex AI]
-  sched -->|opt-in retest| orch
+  browser --> ui
+  browser -->|paste, verify, SSE| api
+  browser -->|open the shop| shop
+  api -->|in-process GET ramp| shop
+  api --> cache
 ```
 
-| Piece | What it does | Local stand-in |
-| --- | --- | --- |
-| `web` | Dark UI. Proxies `/v1`. Public, scales to zero. | `cmd/web` on `:8080`, static files from `web/dist` |
-| `orchestrator` | Ownership, quotas, runs, SSE, kill switch | `cmd/orchestrator` on `:8081`, SQLite |
-| `loadgen` | GET-only ramp. Cloud Run **job** with parallel tasks | In-process workers (`LOADGEN_MODE=inprocess`) |
-| `report` | Readiness prose via Vertex Gemini | Deterministic template, no API key |
-| Firestore | Runs, samples, challenges, quotas | SQLite (`data/stampede.db`) or memory in tests |
-| Cloud Storage | Report JSON and badge SVG | `data/artifacts` (badges are also served by the API) |
-| Demo shop | A site we own, so the demo can prove ownership | `cmd/target` on `:8090` |
+| Piece | What it does |
+| --- | --- |
+| `web/` | The existing React UI. Vite builds it to `web/dist`. |
+| `api/v1/[...slug].ts` | Ownership, quotas, the live curve, the report, and the badge. `maxDuration` is 90 seconds. |
+| `api/shop.ts` | Northwind Kits, the demo shop this deployment owns, at `/demo`. |
+| `api/wellknown.ts` | `/.well-known/stampede-<token>.txt` for the demo shop, so verification needs no DNS. |
+| Runtime Cache | When the function is on Vercel, challenges, quotas, the kill switch, and finished runs are shared across instances in the region. No token to configure. Off Vercel, the same data stays in the instance memory. |
 
-On Cloud Run the browser only talks to `web`. `web` attaches a Cloud Run identity token when it calls the orchestrator. If the caller sent an admin bearer token, `web` moves it to `X-Stampede-Admin` so the identity token does not replace it. Loadgen tasks and the report service use the same internal token plus their own identity tokens. The job is started with a cloud-platform access token, which is what the Cloud Run jobs API expects.
+The Go orchestrator and loadgen stay the local and optional self-host path. Production does not call them. The curve runs inside the Node function: GET only, in-process workers, samples streamed back as server-sent events. The embedded shop is not hammered through extra function invocations. A fresh in-process gate still folds the way the Go shop does: above about 24 requests in a second, p95 crosses 1.5s, and above about 34 the homepage returns 503.
+
+The hosted preset is **30 seconds**, not 45. Slow responses stretch a Top 5 run to roughly a minute of wall clock, which fits the 90 second function limit with room for the probe and the report. The safety ceiling is still 3 minutes. This deployment refuses a curve longer than 40 seconds (`STAMPEDE_PLATFORM_MAX_SECONDS`) so the function is not killed mid-ramp.
+
+### Hobby and Pro duration
+
+On Fluid Compute, the platform default max duration is **300 seconds on Hobby and on Pro**. Pro and Enterprise can raise one function up to **800 seconds** (1800 seconds in the extended beta). This repo sets the run function to **90 seconds** in `vercel.json` (`api/v1/[...slug].ts`).
+
+That 90 second cap is enough for the 30 second public demo. If a project overrides the function limit below 90 seconds, lower `STAMPEDE_DURATION_SECONDS` (default 30) so the curve finishes. To run a longer preset, raise `maxDuration` in `vercel.json` and set `STAMPEDE_PLATFORM_MAX_SECONDS` no higher than 180. Do not go past the 3 minute safety cap.
+
+### Environment variables
+
+None are required for the demo.
+
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `STAMPEDE_ADMIN_TOKEN` | no | Bearer token for `POST /v1/admin/kill` and `POST /v1/admin/resume`. If unset, those routes refuse every caller. |
+| `KILL_SWITCH` | no | Set to `1` to refuse new runs and stop a curve that is already sending. This is the switch that works on every instance. |
+| `STAMPEDE_SECRET` | no | HMAC key for challenge ids and demo grants. Defaults to a built-in demo key so the site boots with no secrets. Set a long random value before you care about forged demo grants. External sites are still checked live. The default key does not skip that check. |
+| `STAMPEDE_DURATION_SECONDS` | no | Preset length. Default 30. Clamped between 10 and the platform max. |
+| `STAMPEDE_PLATFORM_MAX_SECONDS` | no | Longest curve this deployment will start. Default 40. Cannot exceed 180. |
+| `STAMPEDE_MAX_RPS` | no | Requests per second cap. Default 40. Cannot be raised above 40. |
+| `STAMPEDE_ALLOW_HOSTS` | no | Comma-separated hostnames allowed to use a non-public address and a non-80/443 port. Metadata addresses stay blocked. |
+| `TRUST_PROXY` | no | Set to `1` to trust `X-Forwarded-For` for quotas. Vercel sets this itself (`VERCEL=1`). |
+
+Nightly retests are not scheduled on Vercel. The checkbox is hidden. The optional Cloud Run self-host path still has the scheduler flag in `deploy.sh`.
+
+## Product loop
+
+1. Paste a URL, or choose **Use the demo shop** (`/demo` on this deployment).
+2. Prove ownership with `/.well-known/stampede-<token>.txt` or a DNS TXT record. The demo shop answers the file.
+3. Pick **Top 5 of the Day** or **#1 Product of the Day**.
+4. Watch the live chart for about 30 seconds.
+5. Read the template report, the Vercel cost estimate, and the badge. The result page is `/r/<id>`.
 
 ## Traffic assumptions
 
@@ -49,26 +100,52 @@ These curves are planning shapes, not an official Product Hunt traffic feed. The
 - A **Top 5 of the Day** launch is planned as roughly **2,000–4,000** launch-day unique visitors. The curve climbs, holds a plateau at **75% of the safety cap**, then eases off.
 - A **#1 Product of the Day** launch is planned as roughly **6,000–15,000** launch-day uniques, with about a quarter of them in the first two hours. The curve spikes faster and holds the **full cap**.
 - A typical maker page is about **10 HTTP requests per visitor** (the document plus its assets).
-- Stampede **compresses the launch morning into 45 seconds** (never more than 3 minutes) so you can see the shape without a flood.
+- The Vercel demo compresses that morning into **30 seconds**. The local Go runner still defaults to **45 seconds**. Neither path runs longer than **3 minutes**.
 - Absolute rates are **scaled to the safety cap** (default 40 requests/second and 50 workers). The shape is the point. The magnitude stays small on purpose.
 
-Workers move from **10 to 50** across the run. Locally those are goroutines. On Cloud Run the same curve is split across 10 parallel job tasks.
-
-The demo shop, Northwind Kits, is built to fold: above about 24 requests in a second the homepage sleeps long enough for p95 to cross 1.5s, and above about 34 it returns 503. A healthy site you own can still earn **Launch-ready**.
+Workers move from **10 to 50** across the run. On Vercel those are in-process workers inside one function.
 
 ## Safety
 
-Stampede is not a load cannon.
+Stampede is not a load cannon. The Node path enforces the same limits as the Go orchestrator.
 
-- Verified ownership is required before any run. Place `/.well-known/stampede-<token>.txt` or a DNS TXT record. The demo shop answers the file because we own it.
+- Verified ownership is required before any run. Place `/.well-known/stampede-<token>.txt` or a DNS TXT record. The demo shop answers the file because this deployment owns it. On this host, the only URL Stampede will test is `/demo`.
 - GET only. No body, no other method.
-- Hard caps: 40 req/s, 50 workers, 3 minutes. Presets are 45 seconds.
-- Quotas: 3 runs per domain per UTC day, 5 per client IP. Challenge creation is limited to 30 per IP per hour.
+- Hard caps: 40 req/s, 50 workers, 3 minutes. This deployment's preset is 30 seconds and it refuses a curve longer than 40 seconds.
+- Quotas: 3 runs per domain per UTC day, 5 per client IP. Challenge creation is limited to 30 per IP per hour. On Vercel those counters live in Runtime Cache. Without it, each instance enforces them in memory.
 - Private, loopback, link-local, CGNAT, documentation, and reserved ranges are blocked. Cloud metadata (`169.254.169.254` and the metadata hostname) stays blocked even if a host is allowlisted.
-- Redirects stay on the same hostname and are rechecked. The dialer pins the resolved address.
+- Redirects stay on the same hostname and are rechecked. The dialer pins the resolved address and does not use an HTTP proxy.
 - A kill switch stops new runs and in-flight load. Terms are on `/terms`.
 
-## Run it locally
+External ownership is a live file or TXT check at verify time and again when the run starts. A client-held grant only unlocks the embedded demo shop.
+
+## Run the Vercel path locally
+
+You need Node 22. No Vercel account is required to test.
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+`npm test` covers caps, ownership, quotas, SSRF, the demo fold, and a full demo run. `npm run build` builds the UI.
+
+To click through it, use the Vercel CLI from the repo root:
+
+```bash
+npx vercel dev
+```
+
+Or run only the API:
+
+```bash
+npm run dev:api
+```
+
+That listens on `http://127.0.0.1:8787`. The Vite dev server in `web/` still proxies `/v1` to the Go orchestrator on `:8081`, which is the local Go loop below.
+
+## Run the Go stack locally
 
 You need Go 1.22+ and Node 22. No Google Cloud account.
 
@@ -76,7 +153,7 @@ You need Go 1.22+ and Node 22. No Google Cloud account.
 bash scripts/dev.sh
 ```
 
-Open http://localhost:8080. Choose **Use the demo shop**, verify with the token file, and run **Top 5 of the Day**. The ramp is about 45 seconds and can stretch a little once the shop slows down. The chart, the report, and the badge land on the same page. The result page is `/r/<id>`.
+Open http://localhost:8080. Choose **Use the demo shop**, verify with the token file, and run **Top 5 of the Day**. The local ramp is about 45 seconds. The chart, the report, and the badge land on the same page.
 
 | Process | URL |
 | --- | --- |
@@ -84,13 +161,11 @@ Open http://localhost:8080. Choose **Use the demo shop**, verify with the token 
 | Orchestrator | http://localhost:8081 |
 | Demo shop | http://localhost:8090 |
 
-Docker Compose is the same topology, with the demo shop reached inside the network:
+Docker Compose is the same topology:
 
 ```bash
 docker compose up --build
 ```
-
-The UI is still http://localhost:8080. The stored run URL stays `http://localhost:8090`; fetches are rewritten to the internal host.
 
 Local admin token: `local-dev-admin`.
 
@@ -99,83 +174,51 @@ curl -X POST -H "Authorization: Bearer local-dev-admin" http://localhost:8080/v1
 curl -X POST -H "Authorization: Bearer local-dev-admin" http://localhost:8080/v1/admin/resume
 ```
 
-Tests, including caps, ownership, quotas, and SSRF:
+Go tests:
 
 ```bash
 go test ./...
-cd web && npm ci && npm run build
 ```
 
-## Deploy to Cloud Run
+The Go report still prices a launch day with Cloud Run list rates, because that is the self-host cost model. The Vercel UI and the Node report price Fluid Compute instead.
 
-One command, after `gcloud auth login` and a project with billing:
+## Optional: self-host on Cloud Run
+
+`deploy.sh` still deploys the original Go services (web, orchestrator, report, loadgen job) for anyone who wants that topology. The Vercel demo does not use it. Google Cloud credentials are not required for Vercel or for local runs.
 
 ```bash
 ./deploy.sh PROJECT_ID us-central1
 ```
 
-Add `--with-scheduler` for the optional nightly retest of opted-in sites. Prefer **us-central1**. Firestore and Gemini are available there, and other regions are often not a valid Firestore location.
+The script's comments and `cloudbuild.yaml` list the APIs, service accounts, and the spend-cap note. Prefer a budget alert before sharing a Cloud Run URL. Gemini stays optional there: if Vertex is not configured, the report service uses the same deterministic template.
 
-The script prints a spend-cap note and does not create a budget (that needs a billing account id). Set a **$25** alert before you share the URL. A demo run is a few cents. An afternoon of demos should stay under $10. Do not let the project pass **$50**. There are no GPUs. Max instances are 2 (web), 2 (orchestrator), and 1 (report). The loadgen job is 10 tasks, 180s, 0 retries.
+## Screenshots
 
-Tokens are written to `.stampede-deploy.env` (mode 600) the first time. Do not commit that file.
+The coordinator adds images after the first Vercel deploy. Put the PNGs in `docs/screenshots/` using these names, then uncomment the images below.
 
-### What the human deployer needs
-
-APIs the script enables:
-
-- Cloud Run (`run.googleapis.com`)
-- Cloud Build (`cloudbuild.googleapis.com`)
-- Artifact Registry (`artifactregistry.googleapis.com`)
-- Firestore (`firestore.googleapis.com`)
-- Cloud Storage (`storage.googleapis.com`)
-- Vertex AI (`aiplatform.googleapis.com`)
-- Cloud Scheduler (`cloudscheduler.googleapis.com`)
-- IAM (`iam.googleapis.com`)
-
-Roles for the person running `deploy.sh` (project owner on a fresh trial project is enough):
-
-- `roles/serviceusage.serviceUsageAdmin` to enable APIs
-- `roles/iam.serviceAccountAdmin` and `roles/resourcemanager.projectIamAdmin` to create service accounts and bind roles
-- `roles/artifactregistry.admin`, `roles/cloudbuild.builds.editor`, `roles/storage.admin`
-- `roles/datastore.owner` to create the Firestore database
-- `roles/run.admin` to deploy services and the job
-- `roles/iam.serviceAccountUser` on the runtime service accounts
-- `roles/cloudscheduler.admin` only if you pass `--with-scheduler`
-
-### Runtime service accounts
-
-| Account | Roles |
+| File | What it shows |
 | --- | --- |
-| `stampede-web` | `roles/run.invoker` on the orchestrator |
-| `stampede-orchestrator` | `roles/datastore.user`, `roles/run.developer` (start the job with overrides), `roles/storage.objectAdmin` on the artifacts bucket, `roles/iam.serviceAccountUser` on the loadgen account, `roles/run.invoker` on the report service |
-| `stampede-loadgen` | `roles/run.invoker` on the orchestrator |
-| `stampede-report` | `roles/aiplatform.user` (Gemini, no GPU) |
-| `stampede-scheduler` | `roles/run.invoker` on the orchestrator, only with `--with-scheduler` |
+| `docs/screenshots/01-home.png` | Home, with the URL field and **Use the demo shop** |
+| `docs/screenshots/02-ownership.png` | Ownership challenge for the demo shop |
+| `docs/screenshots/03-live-chart.png` | Live chart mid-ramp |
+| `docs/screenshots/04-report-badge.png` | Readiness report and badge |
+| `docs/screenshots/05-demo-shop.png` | Northwind Kits at `/demo` |
 
-Cloud Build also gets `roles/artifactregistry.writer` on the `stampede` repository (Cloud Build service account and the default compute service account).
+<!-- After deploy, commit the PNGs and uncomment:
 
-After deploy, the script prints the public web URL. Kill switch:
+![Home](docs/screenshots/01-home.png)
+![Ownership](docs/screenshots/02-ownership.png)
+![Live chart](docs/screenshots/03-live-chart.png)
+![Report and badge](docs/screenshots/04-report-badge.png)
+![Demo shop](docs/screenshots/05-demo-shop.png)
 
-```bash
-source .stampede-deploy.env
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$WEB_URL/v1/admin/kill"
-```
-
-Or redeploy the orchestrator with `KILL_SWITCH=1`.
-
-Gemini is `gemini-2.5-flash` through Vertex `generateContent`. If Vertex is not ready, the report service falls back to the same deterministic template used locally. Numbers (verdict, breaking rate, cost) always come from the measurements.
-
-### Cost model in the report
-
-The dollar figure is request-based Cloud Run list price for a tier-1 region: about $0.000024 per vCPU-second, $0.0000025 per GiB-second, and $0.40 per million requests. It assumes 1 vCPU, 512 MiB, and concurrency 80, then two hours at the observed peak and ten hours at 20% of peak. Free tier is not subtracted. It is not an invoice.
+-->
 
 ## Open risks
 
-- There is no Google Cloud project in this repo yet. `deploy.sh` is ready to run; it has not been executed against a live project, so a flag rename in a newer `gcloud` (especially `--no-cpu-throttling` and scheduler `--headers`) is the first thing to check on a real deploy.
-- Firestore and Gemini are regional. A region other than `us-central1` can fail database creation or model calls. The template report still completes the run.
-- The orchestrator keeps CPU allocated (`--no-cpu-throttling`) so a run finishes if the browser drops the event stream. It still scales to zero, but an idle request that never ends would bill until the request timeout (300s).
-- Preset magnitudes are far below a real #1 launch. That is the safety cap, and the UI says so. Do not read the badge as a guarantee about uncapped Product Hunt traffic.
-- The demo shop cooperates with the well-known file. A real site must host the token itself. DNS verification needs public DNS.
-- Nightly retests count against the domain quota and only run for hosts verified in the last 30 days.
-- The Cloud Run cost line is a planning estimate from a 45-second sample.
+- Runtime Cache is regional and can evict entries. A shared result link is best-effort for about seven days. The browser also keeps the run in `sessionStorage`, and the badge SVG is embedded in the page from that payload.
+- Quotas and the admin kill flag are global only when Runtime Cache is available. `KILL_SWITCH=1` is the switch that every instance sees.
+- The default `STAMPEDE_SECRET` is in the source. It cannot skip a live ownership check on someone else's host. It can mint a grant for `/demo`, which is the shop this deployment already invites people to test. Set a real secret if that bothers you.
+- Preset magnitudes are far below a real #1 launch. That is the safety cap. Do not read the badge as a guarantee about uncapped Product Hunt traffic.
+- The Vercel cost line is a planning estimate from a short sample, using published Fluid Compute list prices. It is not an invoice.
+- `deploy.sh` has not been executed against a live Google Cloud project. Leave it unused unless you are deliberately self-hosting.
