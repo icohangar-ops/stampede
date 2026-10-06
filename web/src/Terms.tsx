@@ -12,7 +12,9 @@ export default function Terms() {
         <li>Traffic is HTTP GET only. There is no request body and no other method.</li>
         <li>
           Runs are capped. The default ceiling is 40 requests per second, 50 parallel workers, and
-          3 minutes. A domain and a client network each have a daily quota.
+          3 minutes. A domain and a client network each have a daily quota. The hosted demo shop
+          allows more runs per day so visitors are not locked out after a few shared tests. Each network
+          still has its own daily cap.
         </li>
         <li>
           Private, loopback, link-local, and cloud metadata addresses are blocked. The operator can

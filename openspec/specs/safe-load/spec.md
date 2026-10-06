@@ -35,6 +35,10 @@ The system SHALL limit how many runs a single target domain and a single client 
 - **WHEN** a client IP has already consumed its daily run quota
 - **THEN** the system rejects another run from that IP
 
+#### Scenario: Hosted demo shop domain quota
+- **WHEN** the target is this deployment's `/demo`
+- **THEN** the domain quota is the higher demo allowance (`DEMO_DOMAIN_QUOTA`, default 200 runs per UTC day) and the client IP quota is unchanged
+
 ### Requirement: SSRF protection
 The system MUST refuse to connect to loopback, link-local, private, carrier-grade NAT, documentation, multicast, or otherwise non-public addresses, including cloud metadata addresses. The block MUST apply on every dial, including after redirects. An operator allowlist MAY permit specific demo hostnames to use non-public addresses, but metadata addresses stay blocked even then.
 

@@ -147,7 +147,23 @@ function demoResult(url, gate = demoGate) {
   return { status: 404, body: Buffer.from("not found"), contentType: "text/plain; charset=utf-8", delayMs: 0 };
 }
 function isDemoPath(url, selfHost) {
-  return url.hostname.toLowerCase() === selfHost.toLowerCase() && (url.pathname === "/demo" || url.pathname === "/demo/");
+  return hostOf(url) === hostOfName(selfHost) && isDemoPathname(url);
+}
+function isLaunchDemoTarget(url, requestHost) {
+  if (!isDemoPathname(url)) return false;
+  if (isDemoPath(url, requestHost)) return true;
+  const host = hostOf(url);
+  return host === "stampede-three.vercel.app" || host.endsWith(".stampede-three.vercel.app");
+}
+function isDemoPathname(url) {
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  return path === "/demo";
+}
+function hostOf(url) {
+  return hostOfName(url.hostname);
+}
+function hostOfName(host) {
+  return host.toLowerCase().replace(/\.$/, "");
 }
 async function sleep(ms, signal) {
   if (ms <= 0) return;
@@ -171,6 +187,7 @@ var SAFETY_MAX_SECONDS = 180;
 var DEFAULT_PLATFORM_MAX_SECONDS = 40;
 var DEFAULT_DURATION_SECONDS = 30;
 var DOMAIN_QUOTA = 3;
+var DEMO_DOMAIN_QUOTA = 200;
 var IP_QUOTA = 5;
 var CHALLENGE_LIMIT_PER_HOUR = 30;
 var USER_AGENT = "StampedeBot/1.0 (launch check; ownership-verified GET only)";
@@ -186,6 +203,16 @@ function platformMaxSeconds() {
 }
 function defaultDurationSeconds() {
   return intEnv("STAMPEDE_DURATION_SECONDS", DEFAULT_DURATION_SECONDS, 10, platformMaxSeconds());
+}
+function domainQuota() {
+  return intEnv("STAMPEDE_DOMAIN_QUOTA", DOMAIN_QUOTA, 1, 1e3);
+}
+function demoDomainQuota() {
+  const raw = process.env.DEMO_DOMAIN_QUOTA ?? process.env.STAMPEDE_DEMO_DOMAIN_QUOTA;
+  if (!raw) return DEMO_DOMAIN_QUOTA;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return DEMO_DOMAIN_QUOTA;
+  return Math.min(1e4, Math.max(1, Math.floor(n)));
 }
 function maxRps() {
   const raw = process.env.STAMPEDE_MAX_RPS;
@@ -892,7 +919,8 @@ function createApp(options = {}) {
   const policy = options.policy ?? defaultPolicy({ allowHosts: allowHosts(), maxRps: maxRps() });
   const platformMax = options.platformMaxSeconds ?? platformMaxSeconds();
   const presetDuration = options.defaultDuration ?? defaultDurationSeconds();
-  const domainQuota = options.domainQuota ?? DOMAIN_QUOTA;
+  const domainQuotaLimit = options.domainQuota ?? domainQuota();
+  const demoDomainQuotaLimit = options.demoDomainQuota ?? demoDomainQuota();
   const ipQuota = options.ipQuota ?? IP_QUOTA;
   const adminToken = options.adminToken ?? process.env.STAMPEDE_ADMIN_TOKEN ?? "";
   const now = options.now ?? (() => Date.now());
@@ -969,7 +997,8 @@ function createApp(options = {}) {
       model: "template",
       platform: "vercel",
       scheduler: false,
-      domain_quota: domainQuota,
+      domain_quota: domainQuotaLimit,
+      demo_domain_quota: Math.max(domainQuotaLimit, demoDomainQuotaLimit),
       ip_quota: ipQuota
     });
   }
@@ -1070,7 +1099,8 @@ function createApp(options = {}) {
     const ipKey = `q:ip:${ip}:${day}`;
     const hostUsed = Number(await store.get(hostKey) || "0");
     const ipUsed = Number(await store.get(ipKey) || "0");
-    if (hostUsed >= domainQuota || ipUsed >= ipQuota) {
+    const hostQuota = isLaunchDemoTarget(page, selfHost(request)) ? Math.max(domainQuotaLimit, demoDomainQuotaLimit) : domainQuotaLimit;
+    if (hostUsed >= hostQuota || ipUsed >= ipQuota) {
       throw new HttpError(429, "daily quota exceeded for this domain or network");
     }
     await store.set(hostKey, String(hostUsed + 1), 36 * 3600);

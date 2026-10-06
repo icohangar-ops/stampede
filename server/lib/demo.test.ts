@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createGate, demoResult } from "./demo";
+import { createGate, demoResult, isLaunchDemoTarget } from "./demo";
 
 test("demo shop echoes the ownership token and folds as the ramp climbs", () => {
   const file = demoResult(new URL("https://stampede.test/.well-known/stampede-st_abc123.txt"));
@@ -20,4 +20,10 @@ test("demo shop echoes the ownership token and folds as the ramp climbs", () => 
   for (let i = 0; i < 33; i++) hot.hit();
   const down = hot.hit();
   assert.equal(down.fail, true);
+
+  assert.equal(isLaunchDemoTarget(new URL("https://stampede.test/demo"), "stampede.test"), true);
+  assert.equal(isLaunchDemoTarget(new URL("https://stampede-three.vercel.app/demo"), "localhost"), true);
+  assert.equal(isLaunchDemoTarget(new URL("https://stampede-three.vercel.app/demo/"), "localhost"), true);
+  assert.equal(isLaunchDemoTarget(new URL("https://example.com/demo"), "stampede.test"), false);
+  assert.equal(isLaunchDemoTarget(new URL("https://stampede-three.vercel.app/"), "stampede-three.vercel.app"), false);
 });

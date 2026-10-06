@@ -7,6 +7,7 @@ export const SAFETY_MAX_SECONDS = 180;
 export const DEFAULT_PLATFORM_MAX_SECONDS = 40;
 export const DEFAULT_DURATION_SECONDS = 30;
 export const DOMAIN_QUOTA = 3;
+export const DEMO_DOMAIN_QUOTA = 200;
 export const IP_QUOTA = 5;
 export const CHALLENGE_LIMIT_PER_HOUR = 30;
 export const USER_AGENT = "StampedeBot/1.0 (launch check; ownership-verified GET only)";
@@ -25,6 +26,18 @@ export function platformMaxSeconds(): number {
 
 export function defaultDurationSeconds(): number {
   return intEnv("STAMPEDE_DURATION_SECONDS", DEFAULT_DURATION_SECONDS, 10, platformMaxSeconds());
+}
+
+export function domainQuota(): number {
+  return intEnv("STAMPEDE_DOMAIN_QUOTA", DOMAIN_QUOTA, 1, 1000);
+}
+
+export function demoDomainQuota(): number {
+  const raw = process.env.DEMO_DOMAIN_QUOTA ?? process.env.STAMPEDE_DEMO_DOMAIN_QUOTA;
+  if (!raw) return DEMO_DOMAIN_QUOTA;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return DEMO_DOMAIN_QUOTA;
+  return Math.min(10000, Math.max(1, Math.floor(n)));
 }
 
 export function maxRps(): number {
