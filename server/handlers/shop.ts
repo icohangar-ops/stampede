@@ -1,8 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { sleep } from "../server/lib/demo";
-import { renderDemo } from "../server/lib/server";
+import { demoResult, sleep } from "../lib/demo";
 
-// One function for /demo and /demo/* so the route does not depend on an optional catch-all.
+// One function for /demo and /demo/*. Rewrites pass the rest of the path as ?path=.
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     if ((req.method || "GET") !== "GET") {
@@ -14,10 +13,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const host = first(req.headers["x-forwarded-host"]) || first(req.headers.host) || "localhost";
     const proto = first(req.headers["x-forwarded-proto"]) || "https";
     const incoming = new URL(req.url || "/", `${proto}://${host}`);
-    const rest = incoming.searchParams.get("path") || "";
-    const path = rest && rest !== "/" ? `/demo/${rest.replace(/^\/+/, "")}` : "/demo";
-    const target = new URL(path, `${proto}://${host}`);
-    const result = renderDemo(target);
+    const path = demoPath(incoming);
+    const result = demoResult(new URL(path, `${proto}://${host}`));
     await sleep(result.delayMs);
     res.statusCode = result.status;
     res.setHeader("Content-Type", result.contentType);
@@ -29,6 +26,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.statusCode = 500;
     res.end("demo shop failed");
   }
+}
+
+function demoPath(incoming: URL): string {
+  const rest = incoming.searchParams.get("path");
+  if (rest) return `/demo/${rest.replace(/^\/+/, "")}`;
+  if (incoming.pathname === "/demo" || incoming.pathname.startsWith("/demo/")) return incoming.pathname;
+  return "/demo";
 }
 
 function first(value: string | string[] | undefined): string {

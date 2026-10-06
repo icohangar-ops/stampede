@@ -20,7 +20,7 @@ jobs:
       - name: Go tests
         run: go test ./...
       - name: Vercel path tests
-        run: npm ci && npm test
+        run: npm ci && npm test && npm run build:api && npm run smoke:api
       - name: Web build
         working-directory: web
         run: npm ci && npm run build
